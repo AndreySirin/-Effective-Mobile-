@@ -38,13 +38,20 @@ func main() {
 	wg.Add(2)
 
 	go func() {
-		srv.Run()
+		err = srv.Run()
+		if err != nil {
+			lg.Error("error running server:", err)
+			return
+		}
 		wg.Done()
 	}()
 
 	go func() {
 		<-ctx.Done()
-		srv.ShutDown()
+		err = srv.ShutDown()
+		if err != nil {
+			lg.Error("error shutting down server:", err)
+		}
 		wg.Done()
 	}()
 	wg.Wait()

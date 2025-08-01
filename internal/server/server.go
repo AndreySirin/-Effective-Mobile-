@@ -43,12 +43,13 @@ func (s *Server) Run() error {
 	return nil
 }
 
-func (s *Server) ShutDown() {
+func (s *Server) ShutDown() error {
 	ctx, cancel := context.WithTimeout(context.Background(), 3*time.Second)
 	defer cancel()
 	err := s.srv.Shutdown(ctx)
 	if err != nil {
 		s.lg.Error("error when stopping the server")
-		return
+		return err
 	}
+	return nil
 }

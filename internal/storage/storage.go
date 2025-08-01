@@ -3,6 +3,8 @@ package storage
 import (
 	"database/sql"
 	"fmt"
+	_ "github.com/jackc/pgx/v5/stdlib"
+	migrate "github.com/rubenv/sql-migrate"
 	"log/slog"
 	"net/url"
 )
@@ -41,4 +43,15 @@ func New(
 }
 func (s *Storage) Close() error {
 	return s.db.Close()
+}
+
+func (s *Storage) Migrate(bool migrate.MigrationDirection) error {
+	migrations := &migrate.FileMigrationSource{
+		Dir: "/root/migrate",
+	}
+	_, err := migrate.Exec(s.db, "postgres", migrations, bool)
+	if err != nil {
+		return fmt.Errorf("error for migrate: %v", err)
+	}
+	return nil
 }

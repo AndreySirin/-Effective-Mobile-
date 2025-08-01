@@ -21,7 +21,7 @@ func Load() (*Config, error) {
 	}
 	exeDir := filepath.Dir(exePath)
 
-	configPath := filepath.Join(exeDir, "config.example.yaml")
+	configPath := filepath.Join(exeDir, "config.yaml")
 
 	absConfigPath, err := filepath.Abs(configPath)
 	if err != nil {
