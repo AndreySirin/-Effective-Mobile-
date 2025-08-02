@@ -1,0 +1,219 @@
+openapi: 3.0.3
+info:
+  title: Subscription API
+  version: 1.0.0
+  description: API для агрегации данных об онлайн-подписках пользователей.
+
+servers:
+  - url: http://localhost:8080/api/v1
+
+paths:
+  /subs:
+    post:
+      summary: Создать запись новой подписки
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionInput'
+      responses:
+        '201':
+          description: Подписка успешно создана
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  subsId:
+                    type: string
+                    format: uuid
+                    description: Уникальный идентификатор созданной подписки
+                required:
+                  - subsId
+                example:
+                  subsId: "f09a8cce-13c3-44e6-8093-9b49d21115f3"
+
+    get:
+      summary: Получить список всех записей о подписках
+      responses:
+        '200':
+          description: Успешный ответ. Список подписок
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: '#/components/schemas/SubscriptionOutput'
+
+
+  /subs/{id}:
+    get:
+      summary: Получить подписку по ID
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Подписка найдена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionOutput'
+        '404':
+          description: Подписка не найдена
+
+    post:
+      summary: Обновить подписку
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SubscriptionInput'
+      responses:
+        '200':
+          description: Подписка обновлена
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SubscriptionOutput'
+        '404':
+          description: Подписка не найдена
+
+    delete:
+      summary: Удалить подписку
+      parameters:
+        - in: path
+          name: id
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        '200':
+          description: Подписка удалена
+        '404':
+          description: Подписка не найдена
+
+
+  /cost:
+    post:
+      summary: Подсчитать суммарную стоимость подписок
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/TotalCost'
+      responses:
+        '200':
+          description: Суммарная стоимость подписок
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  total:
+                    type: integer
+                    example: 1499
+        '400':
+          description: Неверный запрос
+        '500':
+          description: Внутренняя ошибка сервера
+
+
+
+components:
+  schemas:
+
+    SubscriptionInput:
+      type: object
+      required:
+        - serviceName
+        - price
+        - userId
+        - startDate
+      properties:
+        serviceName:
+          type: string
+          description: Название сервиса
+        price:
+          type: integer
+          format: int
+          description: Стоимость подписки в рублях
+        userId:
+          type: string
+          format: uuid
+          description: ID пользователя
+        startDate:
+          type: string
+          pattern: '^\d{2}-\d{4}$'
+          example: '08-2025'
+          description: Месяц и год начала подписки (формат MM-YYYY)
+
+    SubscriptionOutput:
+      type: object
+      required:
+        - subsId
+        - serviceName
+        - price
+        - userId
+        - startDate
+      properties:
+        subsId:
+          type: string
+          format: uuid
+          description: Уникальный ID подписки
+        serviceName:
+          type: string
+        price:
+          type: integer
+          format: int
+        userId:
+          type: string
+          format: uuid
+        startDate:
+          type: string
+          format: date-time
+          example: "2025-01-10T00:00:00Z"
+
+    TotalCost:
+      type: object
+      required:
+        - serviceName
+        - userId
+        - date_1
+        - date_2
+      properties:
+        serviceName:
+          type: string
+          description: Название сервиса
+        userId:
+          type: string
+          format: uuid
+          description: ID пользователя
+        date_1:
+          type: string
+          pattern: '^\d{2}-\d{4}$'
+          example: '01-2025'
+          description: временной период от
+        date_2:
+          type: string
+          pattern: '^\d{2}-\d{4}$'
+          example: '08-2025'
+          description: временной период до
+
+
+

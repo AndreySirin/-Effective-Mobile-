@@ -31,6 +31,7 @@ func New(log *slog.Logger, addr string, stor storage.SubscriptionStorage) *Serve
 			r.Post("/subs/{id}", s.UpdateSubs)
 			r.Delete("/subs/{id}", s.DeleteSubs)
 			r.Get("/subs", s.ListSubs)
+			r.Post("/cost", s.TotalCost)
 		})
 	})
 

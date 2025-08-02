@@ -6,6 +6,7 @@ import (
 	"github.com/AndreySirin/-Effective-Mobile-/internal/logger"
 	"github.com/AndreySirin/-Effective-Mobile-/internal/server"
 	"github.com/AndreySirin/-Effective-Mobile-/internal/storage"
+	migrate "github.com/rubenv/sql-migrate"
 	"os"
 	"os/signal"
 	"sync"
@@ -31,6 +32,10 @@ func main() {
 			lg.Error("error closing database connection:", err)
 		}
 	}()
+	err = db.Migrate(migrate.Up)
+	if err != nil {
+		lg.Error("error migrating database:", err)
+	}
 	srv := server.New(lg, cfg.Server.Port, db)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
@@ -55,5 +60,4 @@ func main() {
 		wg.Done()
 	}()
 	wg.Wait()
-
 }

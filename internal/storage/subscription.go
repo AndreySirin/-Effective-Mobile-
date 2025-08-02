@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"github.com/AndreySirin/-Effective-Mobile-/internal/entity"
 	"github.com/google/uuid"
@@ -13,12 +14,15 @@ type SubscriptionStorage interface {
 	UpdateSubs(ctx context.Context, subsID uuid.UUID, subs *entity.Subscription) error
 	DeleteSubs(ctx context.Context, subsID uuid.UUID) error
 	ListSubs(ctx context.Context) ([]entity.Subscription, error)
+	TotalCost(ctx context.Context, t entity.TotalCost) (int, error)
 }
+
+var ErrNotFound = errors.New("subscription not found")
 
 func (s *Storage) CreateSubs(ctx context.Context, subs *entity.Subscription) (uuid.UUID, error) {
 	err := s.db.QueryRowContext(ctx,
 		`INSERT INTO subscription(serviceName, price, userID)
-		 VALUES ($1, $2, $3, $4)
+		 VALUES ($1, $2, $3)
 		 RETURNING subscriptionId`,
 		subs.ServiceName, subs.Price, subs.UserId,
 	).Scan(&subs.SubsID)
@@ -30,13 +34,24 @@ func (s *Storage) CreateSubs(ctx context.Context, subs *entity.Subscription) (uu
 
 func (s *Storage) ReadSubs(ctx context.Context, subsID uuid.UUID) (*entity.Subscription, error) {
 	var subs entity.Subscription
-	err := s.db.QueryRowContext(ctx,
+	var exists bool
+
+	err := s.db.QueryRow(`SELECT EXISTS (SELECT 1 FROM subscription WHERE subscriptionId = $1)`, subsID).Scan(&exists)
+	if err != nil {
+		return nil, fmt.Errorf("read exists check: %w", err)
+	}
+	if !exists {
+		return nil, ErrNotFound
+	}
+
+	err = s.db.QueryRowContext(ctx,
 		`SELECT serviceName, price, userID, startDate
 		FROM subscription 
 		WHERE subscriptionId = $1`, subsID).Scan(&subs.ServiceName, &subs.Price, &subs.UserId, &subs.StartDate)
 	if err != nil {
 		return nil, fmt.Errorf("error for query:%v", err)
 	}
+	subs.SubsID = subsID
 	return &subs, nil
 }
 
@@ -54,10 +69,10 @@ func (s *Storage) UpdateSubs(ctx context.Context, subsID uuid.UUID, subs *entity
 	}
 	if !exists {
 		tx.Rollback()
-		return fmt.Errorf("subscription does not exist")
+		return ErrNotFound
 	}
 	r, err := tx.Exec(`UPDATE subscription
-	SET serviceName=$1, price=$2, userID=$3,
+	SET serviceName=$1, price=$2, userID=$3
 	WHERE subscriptionId=$4`,
 		subs.ServiceName,
 		subs.Price,
@@ -84,6 +99,15 @@ func (s *Storage) UpdateSubs(ctx context.Context, subsID uuid.UUID, subs *entity
 }
 
 func (s *Storage) DeleteSubs(ctx context.Context, subsID uuid.UUID) error {
+
+	var exists bool
+	err := s.db.QueryRow(`SELECT EXISTS (SELECT 1 FROM subscription WHERE subscriptionId = $1)`, subsID).Scan(&exists)
+	if err != nil {
+		return fmt.Errorf("checking for a subscription: %w", err)
+	}
+	if !exists {
+		return ErrNotFound
+	}
 
 	r, err := s.db.ExecContext(ctx, `DELETE FROM subscription WHERE subscriptionId = $1`, subsID)
 	if err != nil {
@@ -118,4 +142,18 @@ func (s *Storage) ListSubs(ctx context.Context) ([]entity.Subscription, error) {
 		return nil, fmt.Errorf("listing rows: %w", err)
 	}
 	return subs, nil
+}
+
+func (s *Storage) TotalCost(ctx context.Context, t entity.TotalCost) (int, error) {
+	var sum int
+	err := s.db.QueryRowContext(ctx, `
+	SELECT sum(price) 
+	FROM subscription
+	where userID = $1
+	AND serviceName = $2
+	AND startDate BETWEEN $3 AND $4`, t.UserId, t.ServiceName, t.Date1, t.Date2).Scan(&sum)
+	if err != nil {
+		return 0, fmt.Errorf("getting total cost: %w", err)
+	}
+	return sum, nil
 }
