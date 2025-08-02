@@ -31,7 +31,7 @@ func main() {
 			lg.Error("error closing database connection:", err)
 		}
 	}()
-	srv := server.New(lg, cfg.Server.Port)
+	srv := server.New(lg, cfg.Server.Port, db)
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt)
 	defer stop()
 	wg := new(sync.WaitGroup)

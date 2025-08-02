@@ -4,11 +4,10 @@ CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 CREATE TABLE IF NOT EXISTS subscription (
     subscriptionId UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    serviceName VARCHAR(30) NOT NULL CHECK (LENGTH(provider) >= 2),
+    serviceName VARCHAR(30) NOT NULL CHECK (LENGTH(serviceName) >= 2),
     price INT,
     userID UUID NOT NULL,
     startDate DATE NOT NULL DEFAULT CURRENT_DATE,
-    expiresDate DATE
     );
 
 -- +migrate down

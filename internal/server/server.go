@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"github.com/AndreySirin/-Effective-Mobile-/internal/storage"
 	"github.com/go-chi/chi/v5"
 	"log/slog"
 	"net/http"
@@ -11,19 +12,25 @@ import (
 )
 
 type Server struct {
-	lg  *slog.Logger
-	srv *http.Server
+	lg      *slog.Logger
+	srv     *http.Server
+	storage storage.SubscriptionStorage
 }
 
-func New(log *slog.Logger, addr string) *Server {
+func New(log *slog.Logger, addr string, stor storage.SubscriptionStorage) *Server {
 	s := &Server{
-		lg: log.With("module", "server"),
+		lg:      log.With("module", "server"),
+		storage: stor,
 	}
 
 	r := chi.NewRouter()
 	r.Route("/api", func(r chi.Router) {
 		r.Route("/v1", func(r chi.Router) {
-
+			r.Post("/subs", s.CreateSubs)
+			r.Get("/subs/{id}", s.ReadSubs)
+			r.Post("/subs/{id}", s.UpdateSubs)
+			r.Delete("/subs/{id}", s.DeleteSubs)
+			r.Get("/subs", s.ListSubs)
 		})
 	})
 
