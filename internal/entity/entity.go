@@ -12,6 +12,7 @@ type Subscription struct {
 	Price       int       `json:"price"`
 	UserId      uuid.UUID `json:"userId"`
 	StartDate   time.Time `json:"startDate"`
+	EndDate     time.Time `json:"endDate"`
 }
 
 type SubsRequest struct {
@@ -19,6 +20,7 @@ type SubsRequest struct {
 	Price       int    `json:"price"`
 	UserId      string `json:"userId"`
 	StartDate   string `json:"startDate"`
+	EndDate     string `json:"endDate"`
 }
 
 type TotalCost struct {
@@ -37,10 +39,15 @@ type TotalCostRequest struct {
 
 func SubsToDataBase(req SubsRequest) (Subscription, error) {
 
-	date, err := time.Parse("01-2006", req.StartDate)
+	startDate, err := time.Parse("01-2006", req.StartDate)
 	if err != nil {
 		return Subscription{}, fmt.Errorf("error parsing start date: %v", err)
 	}
+	endDate, err := time.Parse("01-2006", req.EndDate)
+	if err != nil {
+		return Subscription{}, fmt.Errorf("error parsing end date: %v", err)
+	}
+
 	userId, err := uuid.Parse(req.UserId)
 	if err != nil {
 		return Subscription{}, fmt.Errorf("error parsing user id: %v", err)
@@ -49,7 +56,8 @@ func SubsToDataBase(req SubsRequest) (Subscription, error) {
 		ServiceName: req.ServiceName,
 		Price:       req.Price,
 		UserId:      userId,
-		StartDate:   date,
+		StartDate:   startDate,
+		EndDate:     endDate,
 	}
 	return subs, nil
 }

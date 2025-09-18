@@ -2,6 +2,7 @@ package server
 
 import (
 	"encoding/json"
+	"errors"
 	"github.com/AndreySirin/-Effective-Mobile-/internal/entity"
 	"github.com/AndreySirin/-Effective-Mobile-/internal/storage"
 	"github.com/go-chi/chi/v5"
@@ -45,11 +46,11 @@ func (s *Server) ReadSubs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	subs, err := s.storage.ReadSubs(r.Context(), id)
-	if err == storage.ErrNotFound {
-		http.Error(w, storage.ErrNotFound.Error(), 404)
+	if errors.Is(err, storage.ErrNotFound) {
+		http.Error(w, "subscription not found", http.StatusNotFound)
 		return
 	} else if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")
@@ -82,14 +83,14 @@ func (s *Server) UpdateSubs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err = s.storage.UpdateSubs(r.Context(), id, &subs)
-	if err == storage.ErrNotFound {
-		http.Error(w, storage.ErrNotFound.Error(), 404)
+	if errors.Is(err, storage.ErrNotFound) {
+		http.Error(w, "subscription not found", http.StatusNotFound)
 		return
 	} else if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) DeleteSubs(w http.ResponseWriter, r *http.Request) {
@@ -100,14 +101,14 @@ func (s *Server) DeleteSubs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	err = s.storage.DeleteSubs(r.Context(), id)
-	if err == storage.ErrNotFound {
-		http.Error(w, storage.ErrNotFound.Error(), 404)
+	if errors.Is(err, storage.ErrNotFound) {
+		http.Error(w, "subscription not found", http.StatusNotFound)
 		return
 	} else if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
-	w.WriteHeader(http.StatusOK)
+	w.WriteHeader(http.StatusNoContent)
 }
 
 func (s *Server) ListSubs(w http.ResponseWriter, r *http.Request) {

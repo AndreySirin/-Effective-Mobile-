@@ -2,6 +2,7 @@ package storage
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"github.com/AndreySirin/-Effective-Mobile-/internal/entity"
@@ -21,10 +22,10 @@ var ErrNotFound = errors.New("subscription not found")
 
 func (s *Storage) CreateSubs(ctx context.Context, subs *entity.Subscription) (uuid.UUID, error) {
 	err := s.db.QueryRowContext(ctx,
-		`INSERT INTO subscription(serviceName, price, userID)
-		 VALUES ($1, $2, $3)
+		`INSERT INTO subscription(serviceName, price, userID, startDate, endDate)
+		 VALUES ($1, $2, $3, $4, $5)
 		 RETURNING subscriptionId`,
-		subs.ServiceName, subs.Price, subs.UserId,
+		subs.ServiceName, subs.Price, subs.UserId, subs.StartDate, subs.EndDate,
 	).Scan(&subs.SubsID)
 	if err != nil {
 		return uuid.Nil, fmt.Errorf("create subscription: %w", err)
@@ -34,80 +35,46 @@ func (s *Storage) CreateSubs(ctx context.Context, subs *entity.Subscription) (uu
 
 func (s *Storage) ReadSubs(ctx context.Context, subsID uuid.UUID) (*entity.Subscription, error) {
 	var subs entity.Subscription
-	var exists bool
-
-	err := s.db.QueryRow(`SELECT EXISTS (SELECT 1 FROM subscription WHERE subscriptionId = $1)`, subsID).Scan(&exists)
+	err := s.db.QueryRowContext(ctx,
+		`SELECT serviceName, price, userID, startDate, endDate
+		 FROM subscription
+		 WHERE subscriptionId = $1`, subsID).
+		Scan(&subs.ServiceName, &subs.Price, &subs.UserId, &subs.StartDate, &subs.EndDate)
 	if err != nil {
-		return nil, fmt.Errorf("read exists check: %w", err)
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, ErrNotFound
+		}
+		return nil, fmt.Errorf("query subscription: %w", err)
 	}
-	if !exists {
-		return nil, ErrNotFound
-	}
-
-	err = s.db.QueryRowContext(ctx,
-		`SELECT serviceName, price, userID, startDate
-		FROM subscription 
-		WHERE subscriptionId = $1`, subsID).Scan(&subs.ServiceName, &subs.Price, &subs.UserId, &subs.StartDate)
-	if err != nil {
-		return nil, fmt.Errorf("error for query:%v", err)
-	}
-	subs.SubsID = subsID
 	return &subs, nil
 }
 
 func (s *Storage) UpdateSubs(ctx context.Context, subsID uuid.UUID, subs *entity.Subscription) error {
-	tx, err := s.db.BeginTx(ctx, nil)
-	if err != nil {
-		return fmt.Errorf("creating transactions: %w", err)
-	}
-	var exists bool
-	err = tx.QueryRow(`SELECT EXISTS (SELECT 1 FROM subscription WHERE subscriptionId = $1)`, subsID).Scan(&exists)
 
-	if err != nil {
-		tx.Rollback()
-		return fmt.Errorf("checking for a subscription: %w", err)
-	}
-	if !exists {
-		tx.Rollback()
-		return ErrNotFound
-	}
-	r, err := tx.Exec(`UPDATE subscription
-	SET serviceName=$1, price=$2, userID=$3
-	WHERE subscriptionId=$4`,
+	r, err := s.db.ExecContext(ctx, `UPDATE subscription
+	SET serviceName=$1, price=$2, userID=$3, startDate=$4, endDate=$5
+	WHERE subscriptionId=$6`,
 		subs.ServiceName,
 		subs.Price,
 		subs.UserId,
+		subs.StartDate,
+		subs.EndDate,
 		subsID)
+
 	if err != nil {
-		tx.Rollback()
-		return fmt.Errorf("subscription update request: %w", err)
+		return fmt.Errorf("update subscription: %w", err)
 	}
 	rows, err := r.RowsAffected()
 	if err != nil {
-		tx.Rollback()
-		return fmt.Errorf("checking rows affected: %w", err)
+		return fmt.Errorf("rows affected: %w", err)
 	}
 	if rows == 0 {
-		tx.Rollback()
-		return fmt.Errorf("subscription does not exist")
-	}
-	err = tx.Commit()
-	if err != nil {
-		return fmt.Errorf("making a commit: %w", err)
+		return ErrNotFound
 	}
 	return nil
 }
 
 func (s *Storage) DeleteSubs(ctx context.Context, subsID uuid.UUID) error {
-
-	var exists bool
-	err := s.db.QueryRow(`SELECT EXISTS (SELECT 1 FROM subscription WHERE subscriptionId = $1)`, subsID).Scan(&exists)
-	if err != nil {
-		return fmt.Errorf("checking for a subscription: %w", err)
-	}
-	if !exists {
-		return ErrNotFound
-	}
 
 	r, err := s.db.ExecContext(ctx, `DELETE FROM subscription WHERE subscriptionId = $1`, subsID)
 	if err != nil {
@@ -118,7 +85,7 @@ func (s *Storage) DeleteSubs(ctx context.Context, subsID uuid.UUID) error {
 		return fmt.Errorf("checking rows affected: %w", err)
 	}
 	if rows == 0 {
-		return fmt.Errorf("subscription does not exist")
+		return ErrNotFound
 	}
 	return nil
 }
