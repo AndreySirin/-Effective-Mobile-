@@ -8,6 +8,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"github.com/google/uuid"
 	"net/http"
+	"time"
 )
 
 func (s *Server) CreateSubs(w http.ResponseWriter, r *http.Request) {
@@ -112,9 +113,19 @@ func (s *Server) DeleteSubs(w http.ResponseWriter, r *http.Request) {
 }
 
 func (s *Server) ListSubs(w http.ResponseWriter, r *http.Request) {
-	subs, err := s.storage.ListSubs(r.Context())
+	var date string
+	if err := json.NewDecoder(r.Body).Decode(&date); err != nil {
+		http.Error(w, err.Error(), http.StatusBadRequest)
+		return
+	}
+	pointOfReference, err := time.Parse("01-2006", date)
 	if err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
+		http.Error(w, "error parsing start date", http.StatusBadRequest)
+		return
+	}
+	subs, err := s.storage.ListSubs(r.Context(), pointOfReference)
+	if err != nil {
+		http.Error(w, "internal server error", http.StatusInternalServerError)
 		return
 	}
 	w.Header().Set("Content-Type", "application/json")

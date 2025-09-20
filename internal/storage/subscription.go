@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"github.com/AndreySirin/-Effective-Mobile-/internal/entity"
 	"github.com/google/uuid"
+	"time"
 )
 
 type SubscriptionStorage interface {
@@ -14,7 +15,7 @@ type SubscriptionStorage interface {
 	ReadSubs(ctx context.Context, subsID uuid.UUID) (*entity.Subscription, error)
 	UpdateSubs(ctx context.Context, subsID uuid.UUID, subs *entity.Subscription) error
 	DeleteSubs(ctx context.Context, subsID uuid.UUID) error
-	ListSubs(ctx context.Context) ([]entity.Subscription, error)
+	ListSubs(ctx context.Context, time time.Time) ([]entity.Subscription, error)
 	TotalCost(ctx context.Context, t entity.TotalCost) (int, error)
 }
 
@@ -90,16 +91,28 @@ func (s *Storage) DeleteSubs(ctx context.Context, subsID uuid.UUID) error {
 	return nil
 }
 
-func (s *Storage) ListSubs(ctx context.Context) ([]entity.Subscription, error) {
-	var subs []entity.Subscription
-	rows, err := s.db.QueryContext(ctx, `SELECT subscriptionId,serviceName,price,userID,startDate FROM subscription`)
+func (s *Storage) ListSubs(ctx context.Context, pointOfReference time.Time) ([]entity.Subscription, error) {
+	subs := make([]entity.Subscription, 0, 10)
+	rows, err := s.db.QueryContext(ctx,
+		`SELECT
+       subscriptionId,
+       serviceName,
+       price,
+       userID,
+       startDate,
+       endDate
+FROM subscription
+WHERE startDate<$1
+ORDER BY startDate DESC 
+LIMIT 10
+`, pointOfReference)
 	if err != nil {
 		return nil, fmt.Errorf("listing subscriptions: %w", err)
 	}
 	defer rows.Close()
 	for rows.Next() {
 		var sub entity.Subscription
-		err = rows.Scan(&sub.SubsID, &sub.ServiceName, &sub.Price, &sub.UserId, &sub.StartDate)
+		err = rows.Scan(&sub.SubsID, &sub.ServiceName, &sub.Price, &sub.UserId, &sub.StartDate, &sub.EndDate)
 		if err != nil {
 			return nil, fmt.Errorf("scanning row: %w", err)
 		}
@@ -114,11 +127,35 @@ func (s *Storage) ListSubs(ctx context.Context) ([]entity.Subscription, error) {
 func (s *Storage) TotalCost(ctx context.Context, t entity.TotalCost) (int, error) {
 	var sum int
 	err := s.db.QueryRowContext(ctx, `
-	SELECT sum(price) 
-	FROM subscription
-	where userID = $1
-	AND serviceName = $2
-	AND startDate BETWEEN $3 AND $4`, t.UserId, t.ServiceName, t.Date1, t.Date2).Scan(&sum)
+WITH months AS (
+    SELECT generate_series(
+        $3::date, 
+        $4::date, 
+        interval '1 month'
+    )::date AS month_start
+),
+active_subs AS (
+    SELECT serviceName, price, startDate, endDate
+    FROM subscription
+    WHERE userID = $1
+      AND serviceName = $2
+      AND startDate <= $4
+      AND endDate >= $3
+),
+month_subs AS (
+    SELECT m.month_start, a.price
+    FROM months m
+    JOIN active_subs a 
+      ON m.month_start BETWEEN a.startDate AND a.endDate
+),
+unique_months AS (
+    SELECT month_start, MAX(price) AS price
+    FROM month_subs
+    GROUP BY month_start
+)
+SELECT COALESCE(SUM(price), 0) AS total_cost
+FROM unique_months
+`, t.UserId, t.ServiceName, t.Date1, t.Date2).Scan(&sum)
 	if err != nil {
 		return 0, fmt.Errorf("getting total cost: %w", err)
 	}
