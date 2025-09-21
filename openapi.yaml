@@ -212,7 +212,7 @@ components:
         endDate:
           type: string
           format: date-time
-          example: "2025-01-10T00:00:00Z"
+          example: "2025-01-10T00:00:00Z
 
     TotalCost:
       type: object
