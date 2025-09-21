@@ -32,19 +32,33 @@ paths:
                 required:
                   - subsId
                 example:
-                  subsId: "f09a8cce-13c3-44e6-8093-9b49d21115f3"
+                  id: "f09a8cce-13c3-44e6-8093-9b49d21115f3"
 
     get:
-      summary: Получить список всех записей о подписках
+      summary: Получить список подписок с пагинацией по дате
+      parameters:
+        - in: query
+          name: point_of_reference
+          schema:
+            type: string
+            format: date
+            example: "07-2025"
+          required: true
+          description: Дата (месяц и год) от которой будут возвращены записи (MM-YYYY)
       responses:
         '200':
-          description: Успешный ответ. Список подписок
+          description: Успешный ответ. Список подписок, максимум 10 записей
           content:
             application/json:
               schema:
                 type: array
                 items:
                   $ref: '#/components/schemas/SubscriptionOutput'
+        '400':
+          description: Некорректный или отсутствующий параметр point_of_reference
+        '500':
+          description: Внутренняя ошибка сервера
+
 
 
   /subs/{id}:
@@ -166,7 +180,7 @@ components:
         endDate:
           type: string
           pattern: '^\d{2}-\d{4}$'
-          example: '08-2025'
+          example: '09-2025'
           description: Месяц и год окончание подписки (формат MM-YYYY)
 
     SubscriptionOutput:
