@@ -1,0 +1,9 @@
+postgres:
+  dbName: "postgres"
+  user: "postgres"
+  password: "secret"
+  address: "postgres:5432"
+
+server:
+  port: ":8080"
+  shutdown_timeout: 3s
